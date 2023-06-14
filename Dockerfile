@@ -15,6 +15,12 @@ ARG HERCULES_SERVER_MODE=classic
 # Hercules forums is using the packet version 20180418.
 ARG HERCULES_PACKET_VERSION=latest
 
+ENV MYSQL_SERVER=192.168.12.15
+ENV MYSQL_DATABASE=ragnarok
+ENV MYSQL_USER=ragnarok
+ENV MYSQL_PASSWORD=raganrok
+ENV MYSQL_PORT=3306
+
 # You can pass in any further command line options for the build with the HERCULES_BUILD_OPTS
 # build argument.
 ARG HERCULES_BUILD_OPTS
@@ -63,12 +69,12 @@ FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
 RUN \
   apt-get update && \
   apt-get install -y \
-  libmariadb3 \
-  # libmysqlclient20 \
-  libmariadbclient-dev \
+  gcc \
+  make \
   libmariadb-dev-compat \
-  python3-pip \
-  && rm -rf /var/lib/apt/lists/*
+  libmariadb-dev \
+  zlib1g-dev \
+  libpcre3-dev 
 RUN useradd --no-log-init -r hercules
 
 # Install Autolycus dependencies - we're doing this as a separate step
