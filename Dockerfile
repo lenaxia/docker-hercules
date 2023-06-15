@@ -59,7 +59,7 @@ RUN /home/builduser/build-hercules.sh
 # build time and image size for Autolycus's dependencies.
 FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
 
-ENV MYSQL_HOST=192.168.12.15
+ENV MYSQL_HOST=127.0.0.1
 ENV MYSQL_DATABASE=ragnarok
 ENV MYSQL_USERNAME=ragnarok
 ENV MYSQL_PASSWORD=raganrok
