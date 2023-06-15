@@ -8,7 +8,7 @@ services:
         # If you want to run a local image you've built yourself, edit this to simply be the
         # tag for that image, e.g. simply "hercules".
         #image: florianpiesche/hercules:classic-20180418
-        image: hercules
+        image: ghcr.io/lenaxia/hercules:classic-20190605
         container_name: ro-classic
         restart: on-failure
         ports:
@@ -30,11 +30,11 @@ services:
             # If you don't want to set up your own database server, simply
             # leave these as they are and your game servers will use the
             # database service defined below.
-            MYSQL_SERVER: 192.168.12.15 
+            MYSQL_HOST: 192.168.12.15
             MYSQL_PORT: 3306
 
             # The user name and password to use for accessing the database.
-            MYSQL_USER: ragnarok
+            MYSQL_USERNAME: ragnarok
             MYSQL_PASSWORD: ragnarok
 
             # The database to use for your data on the database server.

@@ -13,13 +13,7 @@ ARG HERCULES_SERVER_MODE=classic
 # defined in the Hercules code base as the current supported version.
 # As a recommended alternative, the "Noob Pack" client download available on the
 # Hercules forums is using the packet version 20180418.
-ARG HERCULES_PACKET_VERSION=latest
-
-ENV MYSQL_SERVER=192.168.12.15
-ENV MYSQL_DATABASE=ragnarok
-ENV MYSQL_USER=ragnarok
-ENV MYSQL_PASSWORD=raganrok
-ENV MYSQL_PORT=3306
+ARG HERCULES_PACKET_VERSION=20190605
 
 # You can pass in any further command line options for the build with the HERCULES_BUILD_OPTS
 # build argument.
@@ -65,6 +59,12 @@ RUN /home/builduser/build-hercules.sh
 # build time and image size for Autolycus's dependencies.
 FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
 
+ENV MYSQL_HOST=192.168.12.15
+ENV MYSQL_DATABASE=ragnarok
+ENV MYSQL_USERNAME=ragnarok
+ENV MYSQL_PASSWORD=raganrok
+ENV MYSQL_PORT=3306
+
 # Install base system dependencies and create user.
 RUN \
   apt-get update && \
@@ -92,5 +92,8 @@ EXPOSE 6900 6121 5121
 
 USER hercules
 WORKDIR /hercules
-ENTRYPOINT /autolycus/autolycus.py -p /hercules setup_all && \
+ENTRYPOINT /autolycus/autolycus.py -p /hercules setup_all \
+  --db_hostname ${MYSQL_HOST} --db_database ${MYSQL_DATABASE} \
+  --db_username ${MYSQL_USERNAME} --db_password ${MYSQL_PASSWORD} \
+  --db_port ${MYSQL_PORT} && \
   /autolycus/autolycus.py -p /hercules start && tail -f /hercules/log/*

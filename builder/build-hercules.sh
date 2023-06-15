@@ -37,28 +37,6 @@ if [[ ! -z "${HERCULES_PACKET_VERSION}" && ${HERCULES_PACKET_VERSION} != "latest
    HERCULES_BUILD_OPTS=$HERCULES_BUILD_OPTS" --enable-packetver=${HERCULES_PACKET_VERSION}"
 fi
 
-# Set the MYSQL environment variables
-if [[ ! -z "${MYSQL_SERVER}" ]]; then
-   echo "MYSQL_SERVER defined, replacing"
-   sed -i -E "s/(db_hostname: )\".*\"/\1\"${MYSQL_SERVER}\"/g" ${HERCULES_SRC}/conf/global/sql_connection.conf 
-fi
-if [[ ! -z "${MYSQL_DATABASE}" ]]; then
-   echo "MYSQL_DATABASE defined, replacing"
-   sed -i -E "s/(db_database: )\".*\"/\1\"${MYSQL_DATABASE}\"/g" ${HERCULES_SRC}/conf/global/sql_connection.conf 
-fi
-if [[ ! -z "${MYSQL_PORT}" ]]; then
-   echo "MYSQL_PORT defined, replacing"
-   sed -i -E "s/(db_port: )\".*\"/\1\"${MYSQL_PORT}\"/g" ${HERCULES_SRC}/conf/global/sql_connection.conf 
-fi
-if [[ ! -z "${MYSQL_USER}" ]]; then
-   echo "MYSQL_USER defined, replacing"
-   sed -i -E "s/(db_username: )\".*\"/\1\"${MYSQL_USER}\"/g" ${HERCULES_SRC}/conf/global/sql_connection.conf 
-fi
-if [[ ! -z "${MYSQL_PASSWORD}" ]]; then
-   echo "MYSQL_PASSWORD defined, replacing"
-   sed -i -E "s/(db_password: )\".*\"/\1\"${MYSQL_PASSWORD}\"/g" ${HERCULES_SRC}/conf/global/sql_connection.conf 
-fi
-
 # Disable Renewal on Classic mode builds
 if [[ ${HERCULES_SERVER_MODE} == "classic" ]]; then
    HERCULES_BUILD_OPTS=$HERCULES_BUILD_OPTS" --disable-renewal"
@@ -142,6 +120,7 @@ fi
 echo "=== Adding remaining files from distribution template..."
 cp -r ${WORKSPACE}/distrib-tmpl/* ${DISTRIB_PATH}/
 cp ${WORKSPACE}/distrib-tmpl/.env ${DISTRIB_PATH}
+
 
 echo "=== Adding build version file to distribution..."
 VERSION_FILE=${BUILD_TARGET}/version_info.ini
