@@ -64,6 +64,8 @@ ENV MYSQL_DATABASE=ragnarok
 ENV MYSQL_USERNAME=ragnarok
 ENV MYSQL_PASSWORD=raganrok
 ENV MYSQL_PORT=3306
+ENV INTERSERVER_USER=wisp
+ENV INTERSERVER_PASSWORD=wisp
 
 # Install base system dependencies and create user.
 RUN \
@@ -95,5 +97,6 @@ WORKDIR /hercules
 ENTRYPOINT /autolycus/autolycus.py -p /hercules setup_all \
   --db_hostname ${MYSQL_HOST} --db_database ${MYSQL_DATABASE} \
   --db_username ${MYSQL_USERNAME} --db_password ${MYSQL_PASSWORD} \
-  --db_port ${MYSQL_PORT} && \
+  --db_port ${MYSQL_PORT} --is_username ${INTERSERVER_USER} \
+  --is_password ${INTERSERVER_PASSWORD} && \
   /autolycus/autolycus.py -p /hercules start && tail -f /hercules/log/*
