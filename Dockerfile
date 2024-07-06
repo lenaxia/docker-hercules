@@ -1,7 +1,7 @@
 ###
 # STAGE 1: BUILD HERCULES
 # We'll build Hercules on Debian Bullseye's "slim" image.
-# This minimises dependencies and download times for the builder.
+# This minimizes dependencies and download times for the builder.
 ###
 FROM --platform=${TARGETPLATFORM:-linux/arm/v6} debian:bullseye-slim AS build_hercules
 ARG TARGETPLATFORM
@@ -50,12 +50,12 @@ RUN /home/builduser/build-hercules.sh
 # STAGE 2: BUILD IMAGE
 # Here, we pick a clean minimal base image, install what dependencies
 # we do need and then copy the build artifact from the build stage
-# into it. Doing this as a separate stage from the build minimises
+# into it. Doing this as a separate stage from the build minimizes
 # final image size.
 ###
 
 # We're picking the python:3-slim image as the base because
-# unlike Alpine, this supports binary wheels which will minimise
+# unlike Alpine, this supports binary wheels which will minimize
 # build time and image size for Autolycus's dependencies.
 FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
 ARG TARGETPLATFORM
@@ -63,12 +63,11 @@ ARG TARGETPLATFORM
 # Import the MySQL GPG key
 RUN apt-get update && \
     apt-get install -y gnupg dirmngr && \
-    rm -rf /var/lib/apt/lists/* && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 && \
-    apt-key export 8C718D3B5072E1F5 | apt-key add -
+    rm -rf /var/lib/apt/lists/*
 
-# Add the MySQL APT repository
-RUN echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
+# Import the MySQL GPG key
+RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 5072E1F5 && \
+    echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
 
 ENV MYSQL_HOST=127.0.0.1
 ENV MYSQL_DATABASE=ragnarok
@@ -94,7 +93,7 @@ RUN \
 RUN useradd --no-log-init -r hercules
 
 # Install Autolycus dependencies - we're doing this as a separate step
-# to optimise build cache usage. Docker will cache the image with the
+# to optimize build cache usage. Docker will cache the image with the
 # Python dependencies installed and reuse this for subsequent builds.
 ENV PLATFORM=${TARGETPLATFORM}
 COPY --from=build_hercules --chown=hercules /home/builduser/distrib/autolycus/requirements.txt /autolycus/
