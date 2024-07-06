@@ -28,13 +28,23 @@ RUN apt-get update && apt-get install -y \
   libpcre3-dev \
   libssl-dev \
   make \
-  zlib1g-dev
+  zlib1g-dev \
+  curl
 
 # Create a build user
 RUN adduser --home /home/builduser --shell /bin/bash --gecos "builduser" --disabled-password builduser
 
 # Copy the Hercules build script and distribution template
 COPY --chown=builduser builder /home/builduser
+
+# Download and extract SQL files based on HERCULES_SERVER_MODE
+RUN if [ "${HERCULES_SERVER_MODE}" = "classic" ]; then \
+      curl https://s3.thekao.cloud/public/ragnarok/ro-herc-classic-sql.tar.gz -o /home/builduser/sql-files.tar.gz; \
+    else \
+      curl https://s3.thekao.cloud/public/ragnarok/ro-herc-renewal-sql.tar.gz -o /home/builduser/sql-files.tar.gz; \
+    fi && \
+    tar -xzf /home/builduser/sql-files.tar.gz -C /home/builduser/distrib/sql/ && \
+    rm /home/builduser/sql-files.tar.gz
 
 # Run the build
 USER builduser
@@ -76,7 +86,9 @@ RUN \
   libmariadb-dev-compat \
   libmariadb-dev \
   zlib1g-dev \
-  libpcre3-dev 
+  libpcre3-dev \
+  mysql-client
+
 RUN useradd --no-log-init -r hercules
 
 # Install Autolycus dependencies - we're doing this as a separate step
@@ -84,7 +96,7 @@ RUN useradd --no-log-init -r hercules
 # Python dependencies installed and reuse this for subsequent builds.
 ENV PLATFORM=${TARGETPLATFORM}
 COPY --from=build_hercules --chown=hercules /home/builduser/distrib/autolycus/requirements.txt /autolycus/
-RUN pip3 install -r /autolycus/requirements.txt 
+RUN pip3 install -r /autolycus/requirements.txt
 
 # Copy the actual distribution from builder image
 COPY --from=build_hercules --chown=hercules /home/builduser/distrib/ /
@@ -99,4 +111,8 @@ ENTRYPOINT /autolycus/autolycus.py -p /hercules setup_all \
   --db_username ${MYSQL_USERNAME} --db_password ${MYSQL_PASSWORD} \
   --db_port ${MYSQL_PORT} --is_username ${INTERSERVER_USER} \
   --is_password ${INTERSERVER_PASSWORD} && \
+  for sql_file in /hercules/sql/*.sql; do \
+    echo "Executing $sql_file"; \
+    mysql -h ${MYSQL_HOST} -u ${MYSQL_USERNAME} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} < $sql_file; \
+  done && \
   /autolycus/autolycus.py -p /hercules start && tail -f /hercules/log/*
