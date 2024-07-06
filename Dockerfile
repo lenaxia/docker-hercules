@@ -1,9 +1,9 @@
 ###
 # STAGE 1: BUILD HERCULES
-# We'll build Hercules on Debian Buster's "slim" image.
+# We'll build Hercules on Debian Bullseye's "slim" image.
 # This minimises dependencies and download times for the builder.
 ###
-FROM --platform=${TARGETPLATFORM:-linux/arm/v6} debian:buster-slim AS build_hercules
+FROM --platform=${TARGETPLATFORM:-linux/arm/v6} debian:bullseye-slim AS build_hercules
 
 # Set this to "classic" or "renewal" to build the relevant server version (default: classic).
 ARG HERCULES_SERVER_MODE=classic
@@ -13,7 +13,7 @@ ARG HERCULES_SERVER_MODE=classic
 # defined in the Hercules code base as the current supported version.
 # As a recommended alternative, the "Noob Pack" client download available on the
 # Hercules forums is using the packet version 20180418.
-ARG HERCULES_PACKET_VERSION=20190605
+ARG HERCULES_PACKET_VERSION=latest
 
 # You can pass in any further command line options for the build with the HERCULES_BUILD_OPTS
 # build argument.
