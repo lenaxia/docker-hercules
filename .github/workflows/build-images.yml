@@ -33,24 +33,22 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v1 
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: haya14busa/action-cond@v1
+      - name: Set image tags
         id: image_tags
-        with:
+        run: |
           # Mark classic image with packet version 20180418 as the default on "hercules" repo
-          cond: ${{ matrix.HERCULES_SERVER_MODE == 'classic' && matrix.HERCULES_PACKET_VERSION == '20180418' }}
-          if_true: |
-            florianpiesche/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest
-            florianpiesche/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}
-            florianpiesche/hercules:latest
-          if_false: |
-            florianpiesche/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest
-            florianpiesche/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}
+          if [[ "${{ matrix.HERCULES_SERVER_MODE }}" == "classic" && "${{ matrix.HERCULES_PACKET_VERSION }}" == "20180418" ]]; then
+            echo "tags=ghcr.io/${{ github.repository }}/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/${{ github.repository }}/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }},ghcr.io/${{ github.repository }}/hercules:latest" >> $GITHUB_OUTPUT
+          else
+            echo "tags=ghcr.io/${{ github.repository }}/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/${{ github.repository }}/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Build and publish armv6 image
         uses: docker/build-push-action@v2
@@ -58,9 +56,9 @@ jobs:
           file: Dockerfile
           push: true
           tags: |
-            florianpiesche/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:armv6
-            florianpiesche/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}-armv6
-            florianpiesche/hercules:armv6
+            ghcr.io/${{ github.repository }}/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:armv6
+            ghcr.io/${{ github.repository }}/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}-armv6
+            ghcr.io/${{ github.repository }}/hercules:armv6
           platforms: linux/arm/v6
           build-args: |
             HERCULES_SERVER_MODE=${{ matrix.HERCULES_SERVER_MODE }}
@@ -71,7 +69,7 @@ jobs:
         with:
           file: Dockerfile
           push: true
-          tags: ${{ steps.image_tags.outputs.value }}
+          tags: ${{ steps.image_tags.outputs.tags }}
           platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/arm/v6
           build-args: |
             HERCULES_SERVER_MODE=${{ matrix.HERCULES_SERVER_MODE }}
