@@ -69,6 +69,12 @@ RUN /home/builduser/build-hercules.sh
 # build time and image size for Autolycus's dependencies.
 FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
 
+# Add the MySQL APT repository
+RUN apt-get update && \
+    apt-get install -y gnupg && \
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 && \
+    echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
+
 ENV MYSQL_HOST=127.0.0.1
 ENV MYSQL_DATABASE=ragnarok
 ENV MYSQL_USERNAME=ragnarok
