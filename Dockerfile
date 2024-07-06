@@ -1,124 +1,76 @@
-###
-# STAGE 1: BUILD HERCULES
-# We'll build Hercules on Debian Bullseye's "slim" image.
-# This minimises dependencies and download times for the builder.
-###
-FROM --platform=${TARGETPLATFORM:-linux/arm/v6} debian:bullseye-slim AS build_hercules
+name: build-images
 
-# Set this to "classic" or "renewal" to build the relevant server version (default: classic).
-ARG HERCULES_SERVER_MODE=classic
+on:
+  # Run every other morning, time chosen arbitrarily as a likely low-activity period.
+  # This will ensure that the images are up to date with Hercules releases.
+  schedule:
+    - cron:  '45 11 * * */2'
+  # Allow manual runs.
+  workflow_dispatch:
+  # Also run on updates to this repo.
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
-# Set this to a YYYYMMDD date string to build a server for a specific packet version.
-# Set HERCULES_PACKET_VERSION to "latest" to build the server for the packet version
-# defined in the Hercules code base as the current supported version.
-# As a recommended alternative, the "Noob Pack" client download available on the
-# Hercules forums is using the packet version 20180418.
-ARG HERCULES_PACKET_VERSION=latest
+jobs:
+  build-hercules:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        HERCULES_SERVER_MODE: ["classic", "renewal"]
+        HERCULES_PACKET_VERSION: ["20180418", "latest"]
 
-# You can pass in any further command line options for the build with the HERCULES_BUILD_OPTS
-# build argument.
-ARG HERCULES_BUILD_OPTS
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v1
 
-# Install build dependencies.
-RUN apt-get update && apt-get install -y \
-  gcc \
-  git \
-  libmariadb-dev \
-  libmariadb-dev-compat \
-  libpcre3-dev \
-  libssl-dev \
-  make \
-  zlib1g-dev \
-  curl
+      - name: Set up QEMU for Docker
+        uses: docker/setup-qemu-action@v1
 
-# Create a build user
-RUN adduser --home /home/builduser --shell /bin/bash --gecos "builduser" --disabled-password builduser
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-# Copy the Hercules build script and distribution template
-COPY --chown=builduser builder /home/builduser
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-# Download and extract SQL files based on HERCULES_SERVER_MODE
-RUN if [ "${HERCULES_SERVER_MODE}" = "classic" ]; then \
-      curl https://s3.thekao.cloud/public/ragnarok/ro-herc-classic-sql.tar.gz -o /home/builduser/sql-files.tar.gz; \
-    else \
-      curl https://s3.thekao.cloud/public/ragnarok/ro-herc-renewal-sql.tar.gz -o /home/builduser/sql-files.tar.gz; \
-    fi && \
-    tar -xzf /home/builduser/sql-files.tar.gz -C /home/builduser/distrib/sql/ && \
-    rm /home/builduser/sql-files.tar.gz
+      - name: Set image tags
+        id: image_tags
+        run: |
+          # Mark classic image with packet version 20180418 as the default on "hercules" repo
+          if [[ "${{ matrix.HERCULES_SERVER_MODE }}" == "classic" && "${{ matrix.HERCULES_PACKET_VERSION }}" == "20180418" ]]; then
+            echo "tags=ghcr.io/lenaxia/docker-hercules/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/lenaxia/docker-hercules/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }},ghcr.io/lenaxia/docker-hercules/hercules:latest" >> $GITHUB_OUTPUT
+          else
+            echo "tags=ghcr.io/lenaxia/docker-hercules/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/lenaxia/docker-hercules/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}" >> $GITHUB_OUTPUT
+          fi
 
-# Run the build
-USER builduser
-ENV WORKSPACE=/home/builduser
-ENV DISABLE_MANAGER_ARM64=true
-ENV PLATFORM=${TARGETPLATFORM:-linux/arm/v6}
-ENV HERCULES_PACKET_VERSION=${HERCULES_PACKET_VERSION}
-ENV HERCULES_SERVER_MODE=${HERCULES_SERVER_MODE}
-ENV HERCULES_BUILD_OPTS=${HERCULES_BUILD_OPTS}
-RUN /home/builduser/build-hercules.sh
+      - name: Build and publish armv6 image
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/lenaxia/docker-hercules/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:armv6
+            ghcr.io/lenaxia/docker-hercules/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}-armv6
+            ghcr.io/lenaxia/docker-hercules/hercules:armv6
+          platforms: linux/arm/v6
+          build-args: |
+            HERCULES_SERVER_MODE=${{ matrix.HERCULES_SERVER_MODE }}
+            HERCULES_PACKET_VERSION=${{ matrix.HERCULES_PACKET_VERSION }}
 
-###
-# STAGE 2: BUILD IMAGE
-# Here, we pick a clean minimal base image, install what dependencies
-# we do need and then copy the build artifact from the build stage
-# into it. Doing this as a separate stage from the build minimises
-# final image size.
-###
-
-# We're picking the python:3-slim image as the base because
-# unlike Alpine, this supports binary wheels which will minimise
-# build time and image size for Autolycus's dependencies.
-FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
-
-# Add the MySQL APT repository
-RUN apt-get update && \
-    apt-get install -y gnupg && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 && \
-    echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
-
-ENV MYSQL_HOST=127.0.0.1
-ENV MYSQL_DATABASE=ragnarok
-ENV MYSQL_USERNAME=ragnarok
-ENV MYSQL_PASSWORD=raganrok
-ENV MYSQL_PORT=3306
-ENV INTERSERVER_USER=wisp
-ENV INTERSERVER_PASSWORD=wisp
-
-# Install base system dependencies and create user.
-RUN \
-  apt-get update && \
-  apt-get install -y \
-  gcc \
-  make \
-  libmariadb-dev-compat \
-  libmariadb-dev \
-  zlib1g-dev \
-  libpcre3-dev \
-  mysql-client
-
-RUN useradd --no-log-init -r hercules
-
-# Install Autolycus dependencies - we're doing this as a separate step
-# to optimise build cache usage. Docker will cache the image with the
-# Python dependencies installed and reuse this for subsequent builds.
-ENV PLATFORM=${TARGETPLATFORM}
-COPY --from=build_hercules --chown=hercules /home/builduser/distrib/autolycus/requirements.txt /autolycus/
-RUN pip3 install -r /autolycus/requirements.txt
-
-# Copy the actual distribution from builder image
-COPY --from=build_hercules --chown=hercules /home/builduser/distrib/ /
-
-# Login server, Character server, Map server
-EXPOSE 6900 6121 5121
-
-USER hercules
-WORKDIR /hercules
-ENTRYPOINT /autolycus/autolycus.py -p /hercules setup_all \
-  --db_hostname ${MYSQL_HOST} --db_database ${MYSQL_DATABASE} \
-  --db_username ${MYSQL_USERNAME} --db_password ${MYSQL_PASSWORD} \
-  --db_port ${MYSQL_PORT} --is_username ${INTERSERVER_USER} \
-  --is_password ${INTERSERVER_PASSWORD} && \
-  for sql_file in /hercules/sql/*.sql; do \
-    echo "Executing $sql_file"; \
-    mysql -h ${MYSQL_HOST} -u ${MYSQL_USERNAME} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} < $sql_file; \
-  done && \
-  /autolycus/autolycus.py -p /hercules start && tail -f /hercules/log/*
+      - name: Build Hercules and publish images
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.image_tags.outputs.tags }}
+          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/arm/v6
+          build-args: |
+            HERCULES_SERVER_MODE=${{ matrix.HERCULES_SERVER_MODE }}
+            HERCULES_PACKET_VERSION=${{ matrix.HERCULES_PACKET_VERSION }}
