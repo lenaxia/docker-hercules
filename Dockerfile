@@ -60,12 +60,14 @@ RUN /home/builduser/build-hercules.sh
 FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
 ARG TARGETPLATFORM
 
-# Add the MySQL APT repository and import the GPG key
+# Import the MySQL GPG key
 RUN apt-get update && \
     apt-get install -y gnupg dirmngr && \
     rm -rf /var/lib/apt/lists/* && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 && \
-    echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5
+
+# Add the MySQL APT repository
+RUN echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
 
 ENV MYSQL_HOST=127.0.0.1
 ENV MYSQL_DATABASE=ragnarok
