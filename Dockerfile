@@ -64,7 +64,8 @@ ARG TARGETPLATFORM
 RUN apt-get update && \
     apt-get install -y gnupg dirmngr && \
     rm -rf /var/lib/apt/lists/* && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 && \
+    apt-key export 8C718D3B5072E1F5 | apt-key add -
 
 # Add the MySQL APT repository
 RUN echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
