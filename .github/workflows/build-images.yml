@@ -45,6 +45,32 @@ jobs:
         run: |
           # Mark classic image with packet version 20180418 as the default on "hercules" repo
           if [[ "${{ matrix.HERCULES_SERVER_MODE }}" == "classic" && "${{ matrix.HERCULES_PACKET_VERSION }}" == "20180418" ]]; then
-            echo "tags=ghcr.io/${{ github.repository }}/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/${{ github.repository }}/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }},ghcr.io/${{ github.repository }}/hercules:latest" >> $GITHUB_OUTPUT
+            echo "tags=ghcr.io/lenaxia/docker-hercules/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/lenaxia/docker-hercules/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }},ghcr.io/lenaxia/docker-hercules/hercules:latest" >> $GITHUB_OUTPUT
           else
-            echo "tags=ghcr.io/${{ github.repository }}/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/$
+            echo "tags=ghcr.io/lenaxia/docker-hercules/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:latest,ghcr.io/lenaxia/docker-hercules/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and publish armv6 image
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/lenaxia/docker-hercules/hercules-${{ matrix.HERCULES_SERVER_MODE }}-${{ matrix.HERCULES_PACKET_VERSION }}:armv6
+            ghcr.io/lenaxia/docker-hercules/hercules:${{ matrix.HERCULES_SERVER_MODE }}-packetver-${{ matrix.HERCULES_PACKET_VERSION }}-armv6
+            ghcr.io/lenaxia/docker-hercules/hercules:armv6
+          platforms: linux/arm/v6
+          build-args: |
+            HERCULES_SERVER_MODE=${{ matrix.HERCULES_SERVER_MODE }}
+            HERCULES_PACKET_VERSION=${{ matrix.HERCULES_PACKET_VERSION }}
+
+      - name: Build Hercules and publish images
+        uses: docker/build-push-action@v2
+        with:
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.image_tags.outputs.tags }}
+          platforms: linux/amd64,linux/arm/v7,linux/arm64,linux/arm/v6
+          build-args: |
+            HERCULES_SERVER_MODE=${{ matrix.HERCULES_SERVER_MODE }}
+            HERCULES_PACKET_VERSION=${{ matrix.HERCULES_PACKET_VERSION }}
