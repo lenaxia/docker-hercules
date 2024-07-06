@@ -4,23 +4,13 @@
 # This minimises dependencies and download times for the builder.
 ###
 FROM --platform=${TARGETPLATFORM:-linux/arm/v6} debian:bullseye-slim AS build_hercules
+ARG TARGETPLATFORM
 
-# Set this to "classic" or "renewal" to build the relevant server version (default: classic).
-ARG HERCULES_SERVER_MODE=classic
-
-# Set this to a YYYYMMDD date string to build a server for a specific packet version.
-# Set HERCULES_PACKET_VERSION to "latest" to build the server for the packet version
-# defined in the Hercules code base as the current supported version.
-# As a recommended alternative, the "Noob Pack" client download available on the
-# Hercules forums is using the packet version 20180418.
-ARG HERCULES_PACKET_VERSION=latest
-
-# You can pass in any further command line options for the build with the HERCULES_BUILD_OPTS
-# build argument.
-ARG HERCULES_BUILD_OPTS
+# Update package lists
+RUN apt-get update
 
 # Install build dependencies.
-RUN apt-get update && apt-get install -y \
+RUN apt-get install -y \
   gcc \
   git \
   libmariadb-dev \
@@ -68,10 +58,12 @@ RUN /home/builduser/build-hercules.sh
 # unlike Alpine, this supports binary wheels which will minimise
 # build time and image size for Autolycus's dependencies.
 FROM --platform=${TARGETPLATFORM:-linux/arm/v7} python:3-slim AS build_image
+ARG TARGETPLATFORM
 
-# Add the MySQL APT repository
+# Add the MySQL APT repository and import the GPG key
 RUN apt-get update && \
-    apt-get install -y gnupg && \
+    apt-get install -y gnupg dirmngr && \
+    rm -rf /var/lib/apt/lists/* && \
     apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 8C718D3B5072E1F5 && \
     echo "deb http://repo.mysql.com/apt/debian/ bullseye mysql-8.0" > /etc/apt/sources.list.d/mysql.list
 
@@ -93,7 +85,8 @@ RUN \
   libmariadb-dev \
   zlib1g-dev \
   libpcre3-dev \
-  mysql-client
+  mysql-client && \
+  rm -rf /var/lib/apt/lists/*
 
 RUN useradd --no-log-init -r hercules
 
@@ -112,11 +105,11 @@ EXPOSE 6900 6121 5121
 
 USER hercules
 WORKDIR /hercules
-ENTRYPOINT /autolycus/autolycus.py -p /hercules setup_all \
-  --db_hostname ${MYSQL_HOST} --db_database ${MYSQL_DATABASE} \
-  --db_username ${MYSQL_USERNAME} --db_password ${MYSQL_PASSWORD} \
-  --db_port ${MYSQL_PORT} --is_username ${INTERSERVER_USER} \
-  --is_password ${INTERSERVER_PASSWORD} && \
+ENTRYPOINT ["/autolycus/autolycus.py", "-p", "/hercules", "setup_all", \
+  "--db_hostname", "${MYSQL_HOST}", "--db_database", "${MYSQL_DATABASE}", \
+  "--db_username", "${MYSQL_USERNAME}", "--db_password", "${MYSQL_PASSWORD}", \
+  "--db_port", "${MYSQL_PORT}", "--is_username", "${INTERSERVER_USER}", \
+  "--is_password", "${INTERSERVER_PASSWORD}"] && \
   for sql_file in /hercules/sql/*.sql; do \
     echo "Executing $sql_file"; \
     mysql -h ${MYSQL_HOST} -u ${MYSQL_USERNAME} -p${MYSQL_PASSWORD} ${MYSQL_DATABASE} < $sql_file; \
